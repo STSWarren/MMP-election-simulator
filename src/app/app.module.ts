@@ -3,11 +3,15 @@ import { BrowserModule } from '@angular/platform-browser';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
-import { NgApexchartsModule } from "ng-apexcharts"
+import { NgApexchartsModule } from "ng-apexcharts";
+import { PoliticalPartyComponent } from './political-party/political-party.component';
+import { BallotComponent } from './ballot/ballot.component'
 
 @NgModule({
   declarations: [
-    AppComponent
+    AppComponent,
+    PoliticalPartyComponent,
+    BallotComponent
   ],
   imports: [
     BrowserModule,

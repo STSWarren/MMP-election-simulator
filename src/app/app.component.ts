@@ -23,10 +23,11 @@ export class AppComponent implements OnInit {
   @ViewChild("chart") chart: ChartComponent | undefined;
   public chartOptions: ChartOptions;
 
-
+  issues:string[] = ["issue1","issue6","issue5","issue4","issue3","issue2"];
   element: HTMLElement = document.createElement('div');
   parties: Array<string> = new Array<string>();
-  numberOfVotes: any = 100000;
+  partiesStandingOnTheIssues: Map<string,Map<string,number>> = new Map<string,Map<string,number>>();
+  numberOfVotes: any = 158632;
   round: number = 1;
   minimumViablePercentage: any = 0.2;
   electionBallots:Array<Map<string,string>> = new Array<Map<string,string>>();
@@ -55,6 +56,7 @@ export class AppComponent implements OnInit {
 
   ngOnInit() {
     this.setParties();
+    this.setIssues();
     for(var i = 0; i< this.numberOfVotes; i++){
       this.electionBallots.push(this.generateBallot());
     }
@@ -68,22 +70,72 @@ export class AppComponent implements OnInit {
     });
   }
 
+  setIssues(){
+    this.parties.forEach(party => {
+      var issuesStandings = new Map<string,number>();
+      this.issues.forEach(issue =>{
+        var issueStanding = Math.floor(Math.random()*(100-1)+1);
+        issuesStandings.set(issue,issueStanding);
+      });
+      this.partiesStandingOnTheIssues.set(party, issuesStandings);
+    });
+  }
+
   generateBallot(): Map<string, string>{
     var ballot = new Map<string,string>();
+    var voterInterest = this.generateRandomInterestInIssues();
+    var partyMatching = new Map<string,number>();
+    this.parties.forEach(party=>{
+      partyMatching.set(party,this.compareInterestAndPartyStandings(voterInterest,this.partiesStandingOnTheIssues.get(party)!));
+    })
     var minRank = 1;
     var maxRank = this.parties.length;
-    var partiesLocal = this.parties;
+    var usedParties = new Array<string>();
     for(var i = minRank; i <= maxRank; i++){
-      var partyIndex = Math.floor(Math.random()*(partiesLocal.length))
-      ballot.set( i+'', partiesLocal[partyIndex] );
-      partiesLocal.splice(partyIndex,1);
+      var partyForRank = this.getHighestMatching(partyMatching,usedParties);
+      ballot.set(i+'', partyForRank);
+      usedParties.push(partyForRank);
     }
-    this.setParties();
     return ballot;
   }
 
+  generateRandomInterestInIssues():Map<string,number>{
+    var interests = new Map<string,number>();
+    this.issues.forEach(issue=>{
+      var issueInterest = Math.floor(Math.random()*(100-1)+1);
+      interests.set(issue, issueInterest);
+    });
+    return interests;
+  }
+
+  compareInterestAndPartyStandings(issueInterest:Map<string,number>,partyStandings:Map<string,number>):number{
+    var result = 0;
+    this.issues.forEach(issue=>{
+      result+=Math.abs(partyStandings.get(issue)!-issueInterest.get(issue)!);
+    })
+    return result;
+  }
+  
+  getHighestMatching(partyMatching:Map<string,number>,usedParties:Array<string>):string{
+    var parties = Array.from(partyMatching.keys());
+    var unusedParties = parties.filter(party => !usedParties.includes(party));
+    var bestMatchingValue = partyMatching.get(unusedParties[0])!;
+    var bestMatchingPartyName = unusedParties[0];
+
+    unusedParties.forEach(party => {
+      if(partyMatching.get(party)! < bestMatchingValue){
+        
+        bestMatchingValue = partyMatching.get(party)!;
+        bestMatchingPartyName = party;
+      }
+    });
+    return bestMatchingPartyName;
+  }
+
+  //ToDO: Create a round tree, where each branch is a different party being eliminated in each round. 
+  //Compare the results of the branches to find the quickest route to an election win.
   performElectionRound(){
-    console.log("Round"+this.round);
+    console.log("Round "+this.round);
     this.round++;
     var electionRoundCount = this.gatherRankedPlaceBallots(this.electionBallots);
     var lowestVoteCountParty = this.voteCountAndGetPartyWithLowestCount(electionRoundCount, this.eliminatedParties);
@@ -102,20 +154,21 @@ export class AppComponent implements OnInit {
     this.chartOptions.xaxis.categories = parties;
     
     if(!electionWon){
+      console.log("The following party was eliminated: "+lowestVoteCountParty);
       this.eliminatedParties.push(lowestVoteCountParty);
-      console.log("The following parties have been eliminated: "+this.eliminatedParties);
       
       setTimeout(()=>{
         this.performElectionRound();
       }, 4000)
     }else{
-      const finalPartiesArray = Array.from(electionRoundCount.keys());
-      finalPartiesArray.forEach(party => {
-        var voteCount = electionRoundCount.get(party)!.length;
-        var votePercentage = voteCount/this.numberOfVotes*100;
-        console.log(party+" received "+voteCount+" votes, which was "+votePercentage+"% of the votes.")
-      });
+      console.log("Final Round.")
     }
+    const partyRoundTally = Array.from(electionRoundCount.keys());
+    partyRoundTally.forEach(party => {
+        var voteCount = electionRoundCount.get(party)!.length;
+        var votePercentage = Math.floor(voteCount/this.numberOfVotes*100);
+        console.log(party+" received "+voteCount+" votes, which was "+votePercentage+"% of the votes.")
+    });
   }
 
   gatherRankedPlaceBallots(ballots:Array<Map<string,string>>): 
